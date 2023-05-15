@@ -62,15 +62,20 @@ def main(args):
         os.makedirs(os.path.join(args.output_dir,"params_dir"))
     n_qbts = args.m * args.n
     Nparams = 0
-    if n_qbts % 2 == 0:
-        for i in range(args.n_layers):
-            if i % 2 == 0:
-                Nparams += n_qbts
-            else:
-                Nparams += (n_qbts - 2)
+    if args.ansatz_type == "ALA":
+        if n_qbts % 2 == 0:
+            for i in range(args.n_layers):
+                if i % 2 == 0:
+                    Nparams += n_qbts
+                else:
+                    Nparams += (n_qbts - 2)
+        else:
+            for i in range(args.n_layers):
+                Nparams += (n_qbts - 1)
+    elif args.ansatz_type == "HVA":
+        pass
     else:
-        for i in range(args.n_layers):
-            Nparams += (n_qbts - 1)
+        raise ValueError("please type the correct ansatz type")
 
     Hamiltonian = get_Hamiltonian(args.m, args.n, args.J1, args.J2)
     eigen_vals, eigen_vecs = np.linalg.eig(Hamiltonian)
