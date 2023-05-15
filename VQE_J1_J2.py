@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from utils import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
+from utils import get_nearest_neighbors
 from qiskit import QuantumCircuit, Aer
 from qiskit.algorithms.optimizers import IMFIL
 from qiskit import transpile
@@ -73,7 +74,7 @@ def main(args):
             for i in range(args.n_layers):
                 Nparams += (n_qbts - 1)
     elif args.ansatz_type == "HVA":
-        Nparams = args.n_layers * (n_qbts + len(get_nearest_neighbors(m, n)))
+        Nparams = args.n_layers * (n_qbts + len(get_nearest_neighbors(args.m, args.n)))
     else:
         raise ValueError("please type the correct ansatz type")
 
