@@ -78,6 +78,7 @@ def HVA(circ, m, n, var_params, h_l, n_layers):
     return circ
 
 def Q_Circuit(m, n, var_params, h_l, n_layers, ansatz_type):
+    N_qubits = m * n
     circ = QuantumCircuit(N_qubits, N_qubits)
     if ansatz_type == "ALA":
         N_qubits = m*n

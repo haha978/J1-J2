@@ -29,6 +29,7 @@ def get_args(parser):
     return args
 
 def get_measurement(m, n, var_params, backend, shots, h_l):
+    n_qbts = m * n
     circ = Q_Circuit(m, n, var_params, h_l, args.n_layers, args.ansatz_type)
     circ.measure(list(range(n_qbts)), list(range(n_qbts)))
     circ = transpile(circ, backend)

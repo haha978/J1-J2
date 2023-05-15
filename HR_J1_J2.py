@@ -56,7 +56,7 @@ def get_measurement_index_l(h_idx, z_indices):
 
 def get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend):
     var_params = get_params(params_dir_path, param_idx)
-    m, n = hyperparam_dict["m"] * hyperparam_dict["n"]
+    m, n = hyperparam_dict["m"], hyperparam_dict["n"]
     circ = Q_Circuit(m, n, var_params, [], hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
     circ.save_statevector()
     result = backend.run(circ).result()
@@ -65,7 +65,6 @@ def get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend):
     fid_sqrt = np.vdot(statevector, ground_state)
     fid = np.vdot(fid_sqrt,fid_sqrt)
     return fid.real
-
 
 def get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend):
     cov_mat = np.zeros((3,3))
