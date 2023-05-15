@@ -38,7 +38,7 @@ def ALA(circ, N_qubits, var_params, h_l, n_layers):
         circ.h(h_idx)
     return circ
 
-def HVA(circ, N_qubits, var_params, h_l, n_layers):
+def HVA(circ, m, n, var_params, h_l, n_layers):
     #NEED SOME CODE HERE
     param_idx = 0
     for i in range(N_qubits):
@@ -48,12 +48,13 @@ def HVA(circ, N_qubits, var_params, h_l, n_layers):
         circ.h(h_idx)
     return circ
 
-def Q_Circuit(N_qubits, var_params, h_l, n_layers, ansatz_type):
+def Q_Circuit(m, n, var_params, h_l, n_layers, ansatz_type):
     circ = QuantumCircuit(N_qubits, N_qubits)
     if ansatz_type == "ALA":
+        N_qubits = m*n
         return ALA(circ, N_qubits, var_params, h_l, n_layers)
     elif ansatz_type == "HVA":
-        return HVA(circ, N_qubits, var_params, h_l, n_layers)
+        return HVA(circ, m, n, var_params, h_l, n_layers)
     else:
         raise ValueError("No available ansatz")
 
