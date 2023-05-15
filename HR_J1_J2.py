@@ -13,6 +13,7 @@ from utils import distanceVecFromSubspace, get_Hamiltonian
 import pickle
 import matplotlib.pyplot as plt
 import os
+from Circuit import Q_Circuit
 
 HR_dist_hist = []
 
@@ -23,50 +24,13 @@ def get_args(parser):
     args = parser.parse_args()
     return args
 
-def Q_Circuit(N_qubits, var_params, h_l, n_layers):
-    circ = QuantumCircuit(N_qubits, N_qubits)
-    param_idx = 0
-    for i in range(N_qubits):
-        circ.h(i)
-    if N_qubits % 2 == 0:
-        for layer in range(n_layers):
-            if layer % 2 == 0:
-                for i in range(0, N_qubits, 2):
-                    circ.cx(i, i+1)
-                for i in range(N_qubits):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-            else:
-                for i in range(1, N_qubits-1, 2):
-                    circ.cx(i, i+1)
-                for i in range(1, N_qubits-1):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-    else:
-        for layer in range(n_layers):
-            if layer % 2 == 0:
-                for i in range(0, N_qubits-1, 2):
-                    circ.cx(i, i+1)
-                for i in range(N_qubits-1):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-            else:
-                for i in range(1, N_qubits, 2):
-                    circ.cx(i, i+1)
-                for i in range(1, N_qubits):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-    for h_idx in h_l:
-        circ.h(h_idx)
-    return circ
-
 def get_measurement(n_qbts, var_params, backend, h_l, hyperparam_dict, param_idx):
     measurement_path = os.path.join(args.input_dir, "measurement", f"{param_idx}th_param_{''.join([str(e) for e in h_l])}qbt_h_gate.npy")
     if os.path.exists(measurement_path):
         #no need to save as it is already saved
         measurement = np.load(measurement_path, allow_pickle = "True").item()
     else:
-        circ = Q_Circuit(n_qbts, var_params, h_l, hyperparam_dict["n_layers"])
+        circ = Q_Circuit(n_qbts, var_params, h_l, hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
         circ.measure(list(range(n_qbts)), list(range(n_qbts)))
         circ = transpile(circ, backend)
         job = backend.run(circ, shots = hyperparam_dict["shots"])
@@ -92,7 +56,7 @@ def get_measurement_index_l(h_idx, z_indices):
 def get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend):
     var_params = get_params(params_dir_path, param_idx)
     n_qbts = hyperparam_dict["m"] * hyperparam_dict["n"]
-    circ = Q_Circuit(n_qbts, var_params, [], hyperparam_dict["n_layers"])
+    circ = Q_Circuit(n_qbts, var_params, [], hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
     circ.save_statevector()
     result = backend.run(circ).result()
     statevector = result.get_statevector(circ)
@@ -171,6 +135,7 @@ def main(args):
     hyperparam_dict["J1"], hyperparam_dict["J2"] = VQE_hyperparam_dict["J1"], VQE_hyperparam_dict["J2"]
     hyperparam_dict["m"], hyperparam_dict["n"] = VQE_hyperparam_dict["m"], VQE_hyperparam_dict["n"]
     hyperparam_dict["n_layers"] = VQE_hyperparam_dict["n_layers"]
+    hyperparam_dict["ansatz_type"] = VQE_hyperparam_dict["ansatz_type"]
 
     #Need a new number of shots for HR distance for cost purposes.
     hyperparam_dict["shots"] = args.shots

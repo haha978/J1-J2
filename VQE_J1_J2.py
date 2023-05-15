@@ -9,6 +9,7 @@ import argparse
 from functools import partial
 import pickle
 import matplotlib.pyplot as plt
+from Circuit import Q_Circuit
 
 E_hist = []
 
@@ -17,6 +18,7 @@ def get_args(parser):
     parser.add_argument('--n', type = int, help = "number of qubits in a column")
     parser.add_argument('--J1', type = float, default = 0.5, help = "strength of nearest neighbor coupling(default J: 0.5)")
     parser.add_argument('--J2', type = float, default = 0.05, help = "strength of next nearest neighbor coupling(default J: 0.05)")
+    parser.add_argument('--ansatz_type', type = str, default = "ALA", help = "Ansatz type (default: ALA)")
     parser.add_argument('--shots', type = int, default = 10000, help = "Number of shots (default: 10000)")
     parser.add_argument('--max_iter', type = int, default = 500, help = "maximum number of iterations (default: 10000)")
     parser.add_argument('--n_layers', type = int, default = 3, help = "number of ALA ansatz layers needed (default: 3)")
@@ -25,46 +27,8 @@ def get_args(parser):
     args = parser.parse_args()
     return args
 
-
-def Q_Circuit(N_qubits, var_params, h_l):
-    circ = QuantumCircuit(N_qubits, N_qubits)
-    param_idx = 0
-    for i in range(N_qubits):
-        circ.h(i)
-    if N_qubits % 2 == 0:
-        for layer in range(args.n_layers):
-            if layer % 2 == 0:
-                for i in range(0, N_qubits, 2):
-                    circ.cx(i, i+1)
-                for i in range(N_qubits):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-            else:
-                for i in range(1, N_qubits-1, 2):
-                    circ.cx(i, i+1)
-                for i in range(1, N_qubits-1):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-    else:
-        for layer in range(args.n_layers):
-            if layer % 2 == 0:
-                for i in range(0, N_qubits-1, 2):
-                    circ.cx(i, i+1)
-                for i in range(N_qubits-1):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-            else:
-                for i in range(1, N_qubits, 2):
-                    circ.cx(i, i+1)
-                for i in range(1, N_qubits):
-                    circ.ry(var_params[param_idx], i)
-                    param_idx += 1
-    for h_idx in h_l:
-        circ.h(h_idx)
-    return circ
-
 def get_measurement(n_qbts, var_params, backend, shots, h_l):
-    circ = Q_Circuit(n_qbts, var_params, h_l)
+    circ = Q_Circuit(n_qbts, var_params, h_l, args.n_layers, args.ansatz_type)
     circ.measure(list(range(n_qbts)), list(range(n_qbts)))
     circ = transpile(circ, backend)
     job = backend.run(circ, shots = shots)
@@ -142,6 +106,7 @@ def main(args):
     hyperparam_dict["m"], hyperparam_dict["n"] = args.m, args.n
     hyperparam_dict["J1"], hyperparam_dict["J2"] = args.J1, args.J2
     hyperparam_dict["shots"], hyperparam_dict["n_layers"] = args.shots, args.n_layers
+    hyperparam_dict["ansatz_type"] = args.ansatz_type
     hyperparam_dict["gst_E"] = gst_E
     np.save(os.path.join(args.output_dir, "VQE_hyperparam_dict.npy"), hyperparam_dict)
 
