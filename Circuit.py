@@ -1,6 +1,7 @@
 import qiskit
 from qiskit import QuantumCircuit, Aer
 from utils import get_nearest_neighbors, flatten_neighbor_l
+import numpy as np
 
 def ALA(circ, N_qubits, var_params, h_l, n_layers):
     param_idx = 0
@@ -38,12 +39,40 @@ def ALA(circ, N_qubits, var_params, h_l, n_layers):
         circ.h(h_idx)
     return circ
 
+def get_nn_dict(m, n):
+    nn_l = flatten_neighbor_l(get_nearest_neighbors(m, n), m, n)
+    dict_idx = 0
+    nn_dict = {}
+    while len(nn_l) > 0:
+        seen_l = nn_l.pop(0)
+        nn_dict[dict_idx] = [seen_l.copy()]
+        new_nn_l = []
+        for nn in nn_l:
+            q1, q2 = nn
+            if q1 in seen_l or q2 in seen_l:
+                new_nn_l.append(nn)
+            else:
+                nn_dict[dict_idx].append(nn)
+                seen_l.append(q1)
+                seen_l.append(q2)
+        nn_l = new_nn_l
+        dict_idx += 1
+    return nn_dict
+
 def HVA(circ, m, n, var_params, h_l, n_layers):
     #NEED SOME CODE HERE
     param_idx = 0
-    for i in range(N_qubits):
-        circ.rx(var_params[param_idx], i)
-        param_idx += 1
+    N_qubits = m * n
+    nn_dict = get_nn_dict(m, n)
+    for _ in range(n_layers):
+        for i in range(N_qubits):
+            circ.rx(var_params[param_idx], i)
+            param_idx += 1
+        for k in nn_dict:
+            for nn in nn_dict[k]:
+                q1, q2 = nn
+                circ.rzz(var_params[param_idx], q1, q2)
+                param_idx += 1
     for h_idx in h_l:
         circ.h(h_idx)
     return circ
@@ -57,8 +86,3 @@ def Q_Circuit(m, n, var_params, h_l, n_layers, ansatz_type):
         return HVA(circ, m, n, var_params, h_l, n_layers)
     else:
         raise ValueError("No available ansatz")
-
-if __name__ == "__main__":
-    m, n = 3, 3
-    nn_l = flatten_neighbor_l(get_nearest_neighbors(m, n))
-    print(nn_l)

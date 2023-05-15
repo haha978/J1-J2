@@ -73,7 +73,7 @@ def main(args):
             for i in range(args.n_layers):
                 Nparams += (n_qbts - 1)
     elif args.ansatz_type == "HVA":
-        pass
+        Nparams = args.n_layers * (n_qbts + len(get_nearest_neighbors(m, n)))
     else:
         raise ValueError("please type the correct ansatz type")
 
