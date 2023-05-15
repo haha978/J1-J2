@@ -30,7 +30,8 @@ def get_measurement(n_qbts, var_params, backend, h_l, hyperparam_dict, param_idx
         #no need to save as it is already saved
         measurement = np.load(measurement_path, allow_pickle = "True").item()
     else:
-        circ = Q_Circuit(n_qbts, var_params, h_l, hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
+        m, n = hyperparam_dict["m"], hyperparam_dict["n"]
+        circ = Q_Circuit(m, n, var_params, h_l, hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
         circ.measure(list(range(n_qbts)), list(range(n_qbts)))
         circ = transpile(circ, backend)
         job = backend.run(circ, shots = hyperparam_dict["shots"])
@@ -55,8 +56,8 @@ def get_measurement_index_l(h_idx, z_indices):
 
 def get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend):
     var_params = get_params(params_dir_path, param_idx)
-    n_qbts = hyperparam_dict["m"] * hyperparam_dict["n"]
-    circ = Q_Circuit(n_qbts, var_params, [], hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
+    m, n = hyperparam_dict["m"] * hyperparam_dict["n"]
+    circ = Q_Circuit(m, n, var_params, [], hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
     circ.save_statevector()
     result = backend.run(circ).result()
     statevector = result.get_statevector(circ)

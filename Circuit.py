@@ -57,4 +57,7 @@ def Q_Circuit(N_qubits, var_params, h_l, n_layers, ansatz_type):
     else:
         raise ValueError("No available ansatz")
 
-if __name__ ==
+if __name__ == "__main__":
+    m, n = 3, 3
+    nn_l = flatten_neighbor_l(get_nearest_neighbors(m, n))
+    print(nn_l)

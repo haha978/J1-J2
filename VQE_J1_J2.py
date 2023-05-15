@@ -27,8 +27,8 @@ def get_args(parser):
     args = parser.parse_args()
     return args
 
-def get_measurement(n_qbts, var_params, backend, shots, h_l):
-    circ = Q_Circuit(n_qbts, var_params, h_l, args.n_layers, args.ansatz_type)
+def get_measurement(m, n, var_params, backend, shots, h_l):
+    circ = Q_Circuit(m, n, var_params, h_l, args.n_layers, args.ansatz_type)
     circ.measure(list(range(n_qbts)), list(range(n_qbts)))
     circ = transpile(circ, backend)
     job = backend.run(circ, shots = shots)
@@ -42,8 +42,8 @@ def get_E(var_params, m, n, shots, J1, J2, backend):
     """
     n_qbts = m * n
     z_l, x_l = [], [i for i in range(n_qbts)]
-    z_m = get_measurement(n_qbts, var_params, backend, shots, z_l)
-    x_m = get_measurement(n_qbts, var_params, backend, shots, x_l)
+    z_m = get_measurement(m, n, var_params, backend, shots, z_l)
+    x_m = get_measurement(m, n, var_params, backend, shots, x_l)
 
     # Need to save energy here
     Hx, Hzz, Hz_z = expectation_X(x_m, 1), get_NN_coupling(z_m, m, n, 1), get_nNN_coupling(z_m, m, n, 1)
