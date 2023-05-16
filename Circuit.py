@@ -64,6 +64,8 @@ def HVA(circ, m, n, var_params, h_l, n_layers):
     param_idx = 0
     N_qubits = m * n
     nn_dict = get_nn_dict(m, n)
+    for i in range(N_qubits):
+        circ.h(i)
     for _ in range(n_layers):
         for i in range(N_qubits):
             circ.rx(var_params[param_idx], i)
