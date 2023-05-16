@@ -1,5 +1,10 @@
 import numpy as np
 import os
+os.environ["OMP_NUM_THREADS"] = "20"
+os.environ["OPENBLAS_NUM_THREADS"] = "20"
+os.environ["MKL_NUM_THREADS"] = "20"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "20"
+os.environ["NUMEXPR_NUM_THREADS"] = "20"
 from utils import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
 from utils import get_nearest_neighbors
 from qiskit import QuantumCircuit, Aer
