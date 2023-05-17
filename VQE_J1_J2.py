@@ -6,7 +6,7 @@ os.environ["MKL_NUM_THREADS"] = "20"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "20"
 os.environ["NUMEXPR_NUM_THREADS"] = "20"
 from utils import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
-from utils import get_nearest_neighbors
+from utils import get_nearest_neighbors, get_next_nearest_neighbors
 from qiskit import QuantumCircuit, Aer
 from qiskit.algorithms.optimizers import IMFIL
 from qiskit import transpile
@@ -70,17 +70,9 @@ def main(args):
     n_qbts = args.m * args.n
     Nparams = 0
     if args.ansatz_type == "ALA":
-        if n_qbts % 2 == 0:
-            for i in range(args.n_layers):
-                if i % 2 == 0:
-                    Nparams += n_qbts
-                else:
-                    Nparams += (n_qbts - 2)
-        else:
-            for i in range(args.n_layers):
-                Nparams += (n_qbts - 1)
+        Nparams = args.n_layers * 2 * n_qbts
     elif args.ansatz_type == "HVA":
-        Nparams = args.n_layers * (n_qbts + len(get_nearest_neighbors(args.m, args.n)))
+        Nparams = args.n_layers * (n_qbts + len(get_nearest_neighbors(args.m, args.n)) + len(get_next_nearest_neighbors(args.m, args.n)))
     else:
         raise ValueError("please type the correct ansatz type")
 
