@@ -188,8 +188,10 @@ def main(args):
         with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots_{args.backend}.pkl"), "wb") as fp:
             pickle.dump(HR_dist_hist, fp)
 
+    #backend for fidelity should be different
+    fid_backend = Aer.get_backend(args.backend)
     for param_idx in range(len(E_hist)):
-        fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend)
+        fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, fid_backend)
         print(f"This is fidelity: {fid} for {param_idx}th param")
         fid_hist.append(fid)
         with open(os.path.join(args.input_dir, "fid_hist.pkl"), "wb") as fp:
