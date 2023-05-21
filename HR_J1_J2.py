@@ -128,6 +128,8 @@ def main(args):
     if args.backend == "aer_simulator":
         backend = Aer.get_backend(args.backend)
     else:
+        provider = AzureQuantumProvider(resource_id = "/subscriptions/58687a6b-a9bd-4f79-b7af-1f8f76760d4b/resourceGroups/AzureQuantum/providers/Microsoft.Quantum/Workspaces/HamiltonianReconstruction",\
+                                        location = "West US")
         backend = provider.get_backend(args.backend)
 
     hyperparam_dict = {}
