@@ -21,11 +21,15 @@ def get_args(parser):
     parser.add_argument('--input_dir', type = str, help = "directory where hyperparam_dict.npy exists and HR distances and plots will be stored")
     parser.add_argument('--shots', type=int, default=1000, help = "number of shots during HamiltonianReconstuction (default: 1000)")
     parser.add_argument('--backend', type = str, default = "aer_simulator", help = "backend for ionq runs (aer_simulator, ionq.simulator, ionq.qpu, ionq.qpu.aria-1, default = aer_simulator)")
+    parser.add_argument('--param_idx_l', action = 'store_true', help = "if there is param_idx_l, then use param_idx_l.npy in input_dir \
+                                to load the parameter index list to measure corresponding HR distances")
     args = parser.parse_args()
     return args
 
 def get_measurement(n_qbts, var_params, backend, h_l, hyperparam_dict, param_idx):
-    measurement_path = os.path.join(args.input_dir, "measurement", f"{param_idx}th_param_{''.join([str(e) for e in h_l])}qbt_h_gate.npy")
+    num_shots = hyperparam_dict["shots"]
+    backendnm = hyperparam_dict["backend"]
+    measurement_path = os.path.join(args.input_dir, "measurement",f"{num_shots}_shots_{backendnm}", f"{param_idx}th_param_{''.join([str(e) for e in h_l])}qbt_h_gate.npy")
     if os.path.exists(measurement_path):
         #no need to save as it is already saved
         measurement = np.load(measurement_path, allow_pickle = "True").item()
@@ -34,8 +38,8 @@ def get_measurement(n_qbts, var_params, backend, h_l, hyperparam_dict, param_idx
         circ = Q_Circuit(m, n, var_params, h_l, hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
         circ.measure(list(range(n_qbts)), list(range(n_qbts)))
         circ = transpile(circ, backend)
-        job = backend.run(circ, shots = hyperparam_dict["shots"])
-        if hyperparam_dict["backend"] != "aer_simulator":
+        job = backend.run(circ, shots = num_shots)
+        if backendnm != "aer_simulator":
             job_id = job.id()
             job_monitor(job)
         result = job.result()
@@ -118,8 +122,12 @@ def get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend):
 def main(args):
     if not os.path.exists(os.path.join(args.input_dir,"VQE_hyperparam_dict.npy")):
         raise ValueError( "input directory must be a valid input path that contains VQE_hyperparam_dict.npy")
-    if not os.path.isdir(os.path.join(args.input_dir, "measurement")):
-        os.makedirs(os.path.join(args.input_dir, "measurement"))
+    if not os.path.isdir(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}")):
+        os.makedirs(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}"))
+    if not os.path.isdir(os.path.join(args.input_dir, "HR_dist_hist")):
+        os.makedirs(os.path.join(args.input_dir, "HR_dist_hist"))
+    if not os.path.isdir(os.path.join(args.input_dir, "HR_hyperparam_dict")):
+        os.makedirs(os.path.join(args.input_dir, "HR_hyperparam_dict"))
 
     #LOAD All the hyperparamter data from VQE here
     VQE_hyperparam_dict = np.load(os.path.join(args.input_dir, "VQE_hyperparam_dict.npy"), allow_pickle = True).item()
@@ -144,7 +152,7 @@ def main(args):
     hyperparam_dict["backend"] = args.backend
 
     print("This is hyperparameter dictionary newly constructed: ", hyperparam_dict)
-    np.save(os.path.join(args.input_dir, "HR_hyperparam_dict.npy"), hyperparam_dict)
+    np.save(os.path.join(args.input_dir, "HR_hyperparam_dict", f"{args.shots}_shots_{args.backend}.npy"), hyperparam_dict)
 
     with open(os.path.join(args.input_dir, "E_hist.pkl"), "rb") as fp:
         E_hist = pickle.load(fp)
@@ -165,15 +173,25 @@ def main(args):
 
     HR_dist_hist = []
     fid_hist = []
-    for param_idx in range(len(E_hist)):
+    if args.param_idx_l:
+        param_idx_l_path = os.path.join(args.input_dir, "param_idx_l.npy")
+        assert os.path.isfile(param_idx_l_path), "there is no param_idx_l.npy file in input_dir"
+        param_idx_l = np.load(param_idx_l_path, allow_pickle = "True")
+        print(param_idx_l)
+    else:
+        param_idx_l = list(range(len(E_hist)))
+
+    for param_idx in param_idx_l:
         HR_dist = get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend)
-        fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend)
         print(f"This is HR distance: {HR_dist} for {param_idx}th param")
-        print(f"This is fidelity: {fid} for {param_idx}th param")
         HR_dist_hist.append(HR_dist)
-        fid_hist.append(fid)
-        with open(os.path.join(args.input_dir, "HR_dist_hist.pkl"), "wb") as fp:
+        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots_{args.backend}.pkl"), "wb") as fp:
             pickle.dump(HR_dist_hist, fp)
+
+    for param_idx in range(len(E_hist)):
+        fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend)
+        print(f"This is fidelity: {fid} for {param_idx}th param")
+        fid_hist.append(fid)
         with open(os.path.join(args.input_dir, "fid_hist.pkl"), "wb") as fp:
             pickle.dump(fid_hist, fp)
 
@@ -187,7 +205,7 @@ def main(args):
             str(round(gst_E, 3)) + '\n' + 'Estimated Ground Energy: '+ str(round(float(min(E_hist)), 3))
     plt.title(title, fontdict = {'fontsize' : 15})
     ax2 = ax.twinx()
-    ax2.scatter(VQE_steps, HR_dist_hist, c = 'r', alpha = 0.8, marker=".", label = "HR distance")
+    ax2.scatter(param_idx_l, HR_dist_hist, c = 'r', alpha = 0.8, marker=".", label = "HR distance")
     ax2.scatter(VQE_steps, fid_hist, c = 'g', alpha = 0.8, marker=".", label = "Fidelity")
     ax2.set_ylabel("HR distance | Fidelity")
     ax2.legend(bbox_to_anchor=(1.28, 1.22), fontsize = 10)
