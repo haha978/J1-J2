@@ -7,6 +7,24 @@ def create_identity(m, n):
         temp.append(row.copy())
     return temp
 
+def distanceVecFromSubspace(w, A):
+    """
+    Get L2 norm of distance from w to subspace spanned by columns of A
+
+    Args:
+        w (numpy 1d vector): vector of interest
+        A (numpy 2d matrix): columns of A
+
+    Return:
+        L2 norm of distance from w to subspace spanned by columns of A
+    """
+    Q, _ = np.linalg.qr(A)
+    r = np.zeros(w.shape)
+    #len(Q[0]) is number of eigenvectors
+    for i in range(len(Q[0])):
+        r += np.dot(w, Q[:,i])*Q[:,i]
+    return np.linalg.norm(r-w)
+
 def flatten_neighbor_l(neighbor_l, m, n):
     flat_neighbor_l = []
     for coord1, coord2 in neighbor_l:
@@ -19,6 +37,10 @@ def flatten_neighbor_l(neighbor_l, m, n):
 
 def expected_op(op, wf):
     return np.vdot(wf, np.matmul(op, wf)).real
+
+def expected_op1_op2(op1, op2, wf):
+
+    return np.vdot(wf, np.matmul(op1, np.matmul(op2, wf))).real
 
 def create_partial_Hamiltonian(neighbor_l, m, n):
     """
@@ -67,6 +89,18 @@ def get_next_nearest_neighbors(m, n):
                 nNN_coord_l.append([(i,j), (i+1, j-1)])
     return nNN_coord_l
 
+def get_Hx(N_qubits):
+    Hx = 0
+    sig_x = np.array([[0., 1.], [1., 0.]])
+    for i in range(N_qubits):
+        temp = temp = [np.eye(2)]*N_qubits
+        temp[i] = sig_x
+        tempSum = temp[0]
+        for k in range(1, N_qubits):
+            tempSum = np.kron(tempSum, temp[k])
+        Hx += tempSum
+    return Hx
+
 def get_Hamiltonian(m, n, J1, J2):
     """
     Returns J1-J2 Hamiltonian. Total number of qubits: m x n
@@ -79,17 +113,7 @@ def get_Hamiltonian(m, n, J1, J2):
     H = X + J1*ZZ_<i,j> + J2*ZZ_<<i,j>>
     """
     N_qubits = m * n
-    sig_x = np.array([[0., 1.], [1., 0.]])
-
-    Hx = 0
-    for i in range(N_qubits):
-        temp = temp = [np.eye(2)]*N_qubits
-        temp[i] = sig_x
-        tempSum = temp[0]
-        for k in range(1, N_qubits):
-            tempSum = np.kron(tempSum, temp[k])
-        Hx += tempSum
-
+    Hx = get_Hx(N_qubits)
     NN_coord_l = get_nearest_neighbors(m, n)
     Hzz_J1 = create_partial_Hamiltonian(NN_coord_l, m, n)
     nNN_coord_l = get_next_nearest_neighbors(m, n)

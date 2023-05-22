@@ -6,9 +6,9 @@ from azure.quantum.qiskit import AzureQuantumProvider
 from qiskit import transpile
 import numpy as np
 import argparse
-from utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
-from utils import distanceVecFromSubspace, get_Hamiltonian
-# from utils import distanceVecFromSubspace, get_exp_cross, get_exp_X, get_exp_ZZ
+from utils import get_nearest_neighbors, get_next_nearest_neighbors
+from utils import get_Hx, create_partial_Hamiltonian, get_Hamiltonian
+from utils import distanceVecFromSubspace, expected_op1_op2, expected_op
 import pickle
 import matplotlib.pyplot as plt
 import os
@@ -25,46 +25,18 @@ def get_params(params_dir_path, param_idx):
     var_params = np.load(os.path.join(params_dir_path, f"var_params_{param_idx}.npy"))
     return var_params
 
-def get_HR_distance(op_l, param_idx, params_dir_path, backend):
-    cov_mat = np.zeros((3,3))
-    m, n = hyperparam_dict["m"],  hyperparam_dict["n"]
-    n_qbts = m * n
+def get_HR_distance(hyperparam_dict, wf, ops_l):
+    ops_n = len(ops_l)
+    #intialize covariance matrix, with all its entries being zeros.
+    cov_mat = np.zeros((ops_n, ops_n), dtype=float)
+    for i1 in range(ops_n):
+        for i2 in range(i1, ops_n):
+            O1_O2 = expected_op1_op2(ops_l[i1], ops_l[i2], wf)
+            O1 = expected_op(ops_l[i1], wf)
+            O2 = expected_op(ops_l[i2], wf)
+            cov_mat[i1, i2] = O1_O2 - O1*O2
+            cov_mat[i2, i1] = cov_mat[i1, i2]
 
-    #first I need to get the statevector
-    var_params = get_params(params_dir_path, param_idx)
-    exp_X, exp_NN, exp_nNN = expectation_X(x_m, 1), get_NN_coupling(z_m, m, n, 1), get_nNN_coupling(z_m, m, n, 1)
-
-    #diagonal terms
-    cov_mat[0, 0] = expectation_X(x_m, 2) - exp_X**2
-    cov_mat[1, 1] = get_NN_coupling(z_m, m, n, 2) - exp_NN**2
-    cov_mat[2, 2] = get_nNN_coupling(z_m, m, n, 2) - exp_nNN**2
-
-    #cross terms
-    NN_index_l = flatten_neighbor_l(get_nearest_neighbors(m, n), m, n)
-    nNN_index_l = flatten_neighbor_l(get_next_nearest_neighbors(m, n), m, n)
-    NN_nNN_val = - (exp_NN * exp_nNN)
-
-    for NN_indices in NN_index_l:
-        for nNN_indices in nNN_index_l:
-            indices = NN_indices + nNN_indices
-            NN_nNN_val += get_exp_cross(z_m, indices)
-
-    cov_mat[1, 2], cov_mat[2, 1]= NN_nNN_val, NN_nNN_val
-    X_NN_val = -(exp_X * exp_NN)
-    X_nNN_val = -(exp_X * exp_nNN)
-
-    for h_idx in range(n_qbts):
-        h_l = [h_idx]
-        cross_m = get_measurement(n_qbts, var_params, backend, h_l, hyperparam_dict, param_idx)
-        X_NN_index_l = get_measurement_index_l(h_idx, NN_index_l)
-        X_nNN_index_l = get_measurement_index_l(h_idx, nNN_index_l)
-        for indices in X_NN_index_l:
-            X_NN_val += get_exp_cross(cross_m, indices)
-        for indices in X_nNN_index_l:
-            X_nNN_val += get_exp_cross(cross_m, indices)
-    cov_mat[0, 1] = X_NN_val
-    cov_mat[0, 2] = X_nNN_val
-    cov_mat[2, 0], cov_mat[1, 0] = cov_mat[0, 2], cov_mat[0, 1]
     val, vec = np.linalg.eigh(cov_mat)
     argsort = np.argsort(val)
     val, vec = val[argsort], vec[:, argsort]
@@ -105,8 +77,14 @@ def main(args):
     argmin_idx = np.argmin(eigen_vals)
     gst_E, ground_state = np.real(eigen_vals[argmin_idx]), eigen_vecs[:, argmin_idx]
 
-    NN_index_l= flatten_neighbor_l(get_nearest_neighbors(m, n), m, n)
-    nNN_index_l= flatten_neighbor_l(get_next_nearest_neighbors(m, n), m, n)
+    #create operation list
+    NN_index_l= get_nearest_neighbors(m, n)
+    nNN_index_l= get_next_nearest_neighbors(m, n)
+
+    ops_l = []
+    ops_l.append(get_Hx(m*n))
+    ops_l.append(create_partial_Hamiltonian(NN_index_l, m, n))
+    ops_l.append(create_partial_Hamiltonian(nNN_index_l, m, n))
 
     HR_dist_hist = []
     fid_hist = []
@@ -117,13 +95,13 @@ def main(args):
         circ.save_statevector()
         result = backend.run(circ).result()
         statevector = result.get_statevector(circ)
-        HR_dist = get_HR_distance(statevector, op_l)
+        HR_dist = get_HR_distance(hyperparam_dict, statevector, ops_l)
         print(f"This is HR distance: {HR_dist} for {param_idx}th param")
         HR_dist_hist.append(HR_dist)
         fid_sqrt = np.vdot(statevector, ground_state)
         fid = np.vdot(fid_sqrt,fid_sqrt)
         fid_hist.append(fid)
-        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots.pkl"), "wb") as fp:
+        with open(os.path.join(args.input_dir, "HR_dist_hist.pkl"), "wb") as fp:
             pickle.dump(HR_dist_hist, fp)
         with open(os.path.join(args.input_dir, "fid_hist.pkl"), "wb") as fp:
             pickle.dump(fid_hist, fp)
@@ -134,15 +112,15 @@ def main(args):
     ax.set_xlabel('VQE Iterations')
     ax.set_ylabel("Energy")
     ax.legend(bbox_to_anchor=(1.28, 1.30), fontsize = 10)
-    title = "VQE 2-D "+ f"J1-J2 {m} x {n} grid \n" + f"J1: {J1}, J2: {J2}, shots: {args.shots}" + '\n' + 'True Ground energy: ' + \
+    title = "VQE 2-D "+ f"J1-J2 {m} x {n} grid \n" + f"J1: {J1}, J2: {J2}" + '\n' + 'True Ground energy: ' + \
             str(round(gst_E, 3)) + '\n' + 'Estimated Ground Energy: '+ str(round(float(min(E_hist)), 3))
     plt.title(title, fontdict = {'fontsize' : 15})
     ax2 = ax.twinx()
-    ax2.scatter(param_idx_l, HR_dist_hist, c = 'r', alpha = 0.8, marker=".", label = "HR distance")
+    ax2.scatter(VQE_steps, HR_dist_hist, c = 'r', alpha = 0.8, marker=".", label = "HR distance")
     ax2.scatter(VQE_steps, fid_hist, c = 'g', alpha = 0.8, marker=".", label = "Fidelity")
     ax2.set_ylabel("HR distance | Fidelity")
     ax2.legend(bbox_to_anchor=(1.28, 1.22), fontsize = 10)
-    plt.savefig(args.input_dir+'/'+  str(m*n)+"qubits_"+ str(n_layers)+f"layers_shots_{args.shots}_HR_dist.png", dpi = 300, bbox_inches='tight')
+    plt.savefig(args.input_dir+'/'+  str(m*n)+"qubits_"+ str(n_layers)+f"layers_HR_dist.png", dpi = 300, bbox_inches='tight')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "VQE for 2-D J1-J2 model")
