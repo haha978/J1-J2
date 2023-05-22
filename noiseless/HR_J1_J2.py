@@ -6,7 +6,6 @@ from azure.quantum.qiskit import AzureQuantumProvider
 from qiskit import transpile
 import numpy as np
 import argparse
-from utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
 from utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
 from utils import distanceVecFromSubspace, get_Hamiltonian
 # from utils import distanceVecFromSubspace, get_exp_cross, get_exp_X, get_exp_ZZ
@@ -18,11 +17,7 @@ from Circuit import Q_Circuit
 HR_dist_hist = []
 
 def get_args(parser):
-    parser.add_argument('--input_dir', type = str, help = "directory where hyperparam_dict.npy exists and HR distances and plots will be stored")
-    parser.add_argument('--shots', type=int, default=1000, help = "number of shots during HamiltonianReconstuction (default: 1000)")
-    parser.add_argument('--backend', type = str, default = "aer_simulator", help = "backend for ionq runs (aer_simulator, ionq.simulator, ionq.qpu, ionq.qpu.aria-1, default = aer_simulator)")
-    parser.add_argument('--param_idx_l', action = 'store_true', help = "if there is param_idx_l, then use param_idx_l.npy in input_dir \
-                                to load the parameter index list to measure corresponding HR distances")
+    parser.add_argument('--input_dir', type = str, help = "directory where VQE_hyperparam_dict.npy exists and HR distances and plots will be stored")
     args = parser.parse_args()
     return args
 
@@ -30,33 +25,13 @@ def get_params(params_dir_path, param_idx):
     var_params = np.load(os.path.join(params_dir_path, f"var_params_{param_idx}.npy"))
     return var_params
 
-def get_measurement_index_l(h_idx, z_indices):
-    m_index_l = []
-    for zi, zj in z_indices:
-        if h_idx != zi and h_idx != zj:
-            m_index_l.append([h_idx, zi, zj])
-    return m_index_l
-
-def get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend):
-    var_params = get_params(params_dir_path, param_idx)
-    m, n = hyperparam_dict["m"], hyperparam_dict["n"]
-    circ = Q_Circuit(m, n, var_params, [], hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
-    circ.save_statevector()
-    result = backend.run(circ).result()
-    statevector = result.get_statevector(circ)
-    statevector = np.array(statevector)
-    fid_sqrt = np.vdot(statevector, ground_state)
-    fid = np.vdot(fid_sqrt,fid_sqrt)
-    return fid.real
-
-def get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend):
+def get_HR_distance(op_l, param_idx, params_dir_path, backend):
     cov_mat = np.zeros((3,3))
     m, n = hyperparam_dict["m"],  hyperparam_dict["n"]
     n_qbts = m * n
-    z_l, x_l = [], [i for i in range(n_qbts)]
+
+    #first I need to get the statevector
     var_params = get_params(params_dir_path, param_idx)
-    z_m = get_measurement(n_qbts, var_params, backend, z_l, hyperparam_dict, param_idx)
-    x_m = get_measurement(n_qbts, var_params, backend, x_l, hyperparam_dict, param_idx)
     exp_X, exp_NN, exp_nNN = expectation_X(x_m, 1), get_NN_coupling(z_m, m, n, 1), get_nNN_coupling(z_m, m, n, 1)
 
     #diagonal terms
@@ -101,23 +76,11 @@ def get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend):
 def main(args):
     if not os.path.exists(os.path.join(args.input_dir,"VQE_hyperparam_dict.npy")):
         raise ValueError( "input directory must be a valid input path that contains VQE_hyperparam_dict.npy")
-    if not os.path.isdir(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}")):
-        os.makedirs(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}"))
-    if not os.path.isdir(os.path.join(args.input_dir, "HR_dist_hist")):
-        os.makedirs(os.path.join(args.input_dir, "HR_dist_hist"))
-    if not os.path.isdir(os.path.join(args.input_dir, "HR_hyperparam_dict")):
-        os.makedirs(os.path.join(args.input_dir, "HR_hyperparam_dict"))
 
     #LOAD All the hyperparamter data from VQE here
     VQE_hyperparam_dict = np.load(os.path.join(args.input_dir, "VQE_hyperparam_dict.npy"), allow_pickle = True).item()
     params_dir_path = os.path.join(args.input_dir,"params_dir")
-    #NEED TO FIX THIS TO SUPPORT GPU
-    if args.backend == "aer_simulator":
-        backend = Aer.get_backend(args.backend)
-    else:
-        provider = AzureQuantumProvider(resource_id = "/subscriptions/58687a6b-a9bd-4f79-b7af-1f8f76760d4b/resourceGroups/AzureQuantum/providers/Microsoft.Quantum/Workspaces/HamiltonianReconstruction",\
-                                        location = "West US")
-        backend = provider.get_backend(args.backend)
+    backend = Aer.get_backend("aer_simulator")
 
     hyperparam_dict = {}
     hyperparam_dict["gst_E"] = VQE_hyperparam_dict["gst_E"]
@@ -126,12 +89,8 @@ def main(args):
     hyperparam_dict["n_layers"] = VQE_hyperparam_dict["n_layers"]
     hyperparam_dict["ansatz_type"] = VQE_hyperparam_dict["ansatz_type"]
 
-    #Need a new number of shots for HR distance for cost purposes.
-    hyperparam_dict["shots"] = args.shots
-    hyperparam_dict["backend"] = args.backend
-
     print("This is hyperparameter dictionary newly constructed: ", hyperparam_dict)
-    np.save(os.path.join(args.input_dir, "HR_hyperparam_dict", f"{args.shots}_shots_{args.backend}.npy"), hyperparam_dict)
+    np.save(os.path.join(args.input_dir, "HR_hyperparam_dict.npy"), hyperparam_dict)
 
     with open(os.path.join(args.input_dir, "E_hist.pkl"), "rb") as fp:
         E_hist = pickle.load(fp)
@@ -141,7 +100,6 @@ def main(args):
     J1, J2 = hyperparam_dict["J1"], hyperparam_dict["J2"]
     n_layers = hyperparam_dict["n_layers"]
 
-    #get ground state NEED TO DELETE THIS LINE THO --> PROBABLY JUST GET IT WHEN VQE
     Hamiltonian = get_Hamiltonian(m, n, J1, J2)
     eigen_vals, eigen_vecs = np.linalg.eig(Hamiltonian)
     argmin_idx = np.argmin(eigen_vals)
@@ -152,27 +110,21 @@ def main(args):
 
     HR_dist_hist = []
     fid_hist = []
-    if args.param_idx_l:
-        param_idx_l_path = os.path.join(args.input_dir, "param_idx_l.npy")
-        assert os.path.isfile(param_idx_l_path), "there is no param_idx_l.npy file in input_dir"
-        param_idx_l = np.load(param_idx_l_path, allow_pickle = "True")
-        print(param_idx_l)
-    else:
-        param_idx_l = list(range(len(E_hist)))
 
-    for param_idx in param_idx_l:
-        HR_dist = get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend)
+    for param_idx in range(len(E_hist)):
+        var_params = get_params(params_dir_path, param_idx)
+        circ = Q_Circuit(m, n, var_params, hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
+        circ.save_statevector()
+        result = backend.run(circ).result()
+        statevector = result.get_statevector(circ)
+        HR_dist = get_HR_distance(statevector, op_l)
         print(f"This is HR distance: {HR_dist} for {param_idx}th param")
         HR_dist_hist.append(HR_dist)
-        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots_{args.backend}.pkl"), "wb") as fp:
-            pickle.dump(HR_dist_hist, fp)
-
-    #backend for fidelity should be different
-    fid_backend = Aer.get_backend("aer_simulator")
-    for param_idx in range(len(E_hist)):
-        fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, fid_backend)
-        print(f"This is fidelity: {fid} for {param_idx}th param")
+        fid_sqrt = np.vdot(statevector, ground_state)
+        fid = np.vdot(fid_sqrt,fid_sqrt)
         fid_hist.append(fid)
+        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots.pkl"), "wb") as fp:
+            pickle.dump(HR_dist_hist, fp)
         with open(os.path.join(args.input_dir, "fid_hist.pkl"), "wb") as fp:
             pickle.dump(fid_hist, fp)
 
