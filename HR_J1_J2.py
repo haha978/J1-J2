@@ -189,7 +189,7 @@ def main(args):
             pickle.dump(HR_dist_hist, fp)
 
     #backend for fidelity should be different
-    fid_backend = Aer.get_backend(args.backend)
+    fid_backend = Aer.get_backend("aer_simulator")
     for param_idx in range(len(E_hist)):
         fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, fid_backend)
         print(f"This is fidelity: {fid} for {param_idx}th param")
