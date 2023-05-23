@@ -65,7 +65,7 @@ def create_partial_Hamiltonian(neighbor_l, m, n):
         for i in range(m):
             for j in range(n):
                 if i != 0 or j != 0:
-                    tempSum = np.kron(tempSum, temp[i][j])
+                    tempSum = np.kron(temp[i][j], tempSum)
         Hzz += tempSum
     return Hzz
 

@@ -1,7 +1,9 @@
 import numpy as np
 
 def get_num_mt(mt):
-    return list(map(lambda x: 1 if x == '0' else -1, mt))
+    num_mt_l = list(map(lambda x: 1 if x == '0' else -1, mt))
+    num_mt_l.reverse()
+    return num_mt_l
 
 def diagonalize(mat):
     """
@@ -71,7 +73,7 @@ def create_partial_Hamiltonian(neighbor_l, m, n):
         for i in range(m):
             for j in range(n):
                 if i != 0 or j != 0:
-                    tempSum = np.kron(tempSum, temp[i][j])
+                    tempSum = np.kron(temp[i][j], tempSum)
         Hzz += tempSum
     return Hzz
 
@@ -160,7 +162,7 @@ def get_Hamiltonian(m, n, J1, J2):
         temp[i] = sig_x
         tempSum = temp[0]
         for k in range(1, N_qubits):
-            tempSum = np.kron(tempSum, temp[k])
+            tempSum = np.kron(temp[k], tempSum)
         Hx += tempSum
 
     NN_coord_l = get_nearest_neighbors(m, n)
