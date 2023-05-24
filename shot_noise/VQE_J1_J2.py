@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, "../")
 import numpy as np
 import os
 from qiskit import QuantumCircuit, Aer
@@ -8,9 +10,9 @@ import argparse
 from functools import partial
 import pickle
 import matplotlib.pyplot as plt
-from .utils import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
-from .utils import get_nearest_neighbors
-from .Circuit import Q_Circuit
+from shot_noise.utils import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
+from shot_noise.utils import get_nearest_neighbors
+from shot_noise.Circuit import Q_Circuit
 
 E_hist = []
 

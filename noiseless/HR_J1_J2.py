@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, "../")
 import qiskit
 from qiskit import QuantumCircuit, Aer
 from qiskit.visualization import plot_histogram
@@ -11,12 +13,21 @@ import matplotlib.pyplot as plt
 import os
 # Reference https://stackoverflow.com/questions/52988881/modulenotfounderror-on-a-submodule-that-imports-a-submodule
 # to understand why there is a dot before the package name
-from .utils import get_nearest_neighbors, get_next_nearest_neighbors
-from .utils import get_Hx, create_partial_Hamiltonian, get_Hamiltonian
-from .utils import distanceVecFromSubspace, expected_op1_op2, expected_op
-from .Circuit import Q_Circuit
+from noiseless.utils import get_nearest_neighbors, get_next_nearest_neighbors
+from noiseless.utils import get_Hx, create_partial_Hamiltonian, get_Hamiltonian
+from noiseless.utils import distanceVecFromSubspace, expected_op1_op2, expected_op
+from noiseless.Circuit import Q_Circuit
 
 HR_dist_hist = []
+
+def get_operations_l(m, n):
+    NN_index_l= get_nearest_neighbors(m, n)
+    nNN_index_l= get_next_nearest_neighbors(m, n)
+    ops_l = []
+    ops_l.append(get_Hx(m*n))
+    ops_l.append(create_partial_Hamiltonian(NN_index_l, m, n))
+    ops_l.append(create_partial_Hamiltonian(nNN_index_l, m, n))
+    return ops_l
 
 def get_args(parser):
     parser.add_argument('--input_dir', type = str, help = "directory where VQE_hyperparam_dict.npy exists and HR distances and plots will be stored")
@@ -80,13 +91,7 @@ def main(args):
     gst_E, ground_state = np.real(eigen_vals[argmin_idx]), eigen_vecs[:, argmin_idx]
 
     #create operation list
-    NN_index_l= get_nearest_neighbors(m, n)
-    nNN_index_l= get_next_nearest_neighbors(m, n)
-
-    ops_l = []
-    ops_l.append(get_Hx(m*n))
-    ops_l.append(create_partial_Hamiltonian(NN_index_l, m, n))
-    ops_l.append(create_partial_Hamiltonian(nNN_index_l, m, n))
+    ops_l = get_operations_l(m, n)
 
     HR_dist_hist = []
     fid_hist = []

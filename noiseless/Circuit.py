@@ -1,7 +1,9 @@
+import sys
+sys.path.insert(0, "../")
 import qiskit
 from qiskit import QuantumCircuit, Aer
 import numpy as np
-from .utils import get_nearest_neighbors, flatten_neighbor_l
+from noiseless.utils import get_nearest_neighbors, flatten_neighbor_l
 
 def ALA(circ, N_qubits, var_params, n_layers):
     param_idx = 0

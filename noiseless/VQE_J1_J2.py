@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, "../")
 import numpy as np
 import os
 from qiskit import QuantumCircuit, Aer
@@ -10,9 +12,9 @@ import pickle
 import matplotlib.pyplot as plt
 # Reference https://stackoverflow.com/questions/52988881/modulenotfounderror-on-a-submodule-that-imports-a-submodule
 # to understand why there is a dot before the package name
-from .Circuit import Q_Circuit
-from .utils import get_Hamiltonian, expected_op
-from .utils import get_nearest_neighbors, create_identity
+from noiseless.Circuit import Q_Circuit
+from noiseless.utils import get_Hamiltonian, expected_op
+from noiseless.utils import get_nearest_neighbors, create_identity
 
 
 E_hist = []

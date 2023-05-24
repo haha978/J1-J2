@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, "../")
 import qiskit
 from qiskit import QuantumCircuit, Aer
 from qiskit.visualization import plot_histogram
@@ -9,10 +11,10 @@ import argparse
 import pickle
 import matplotlib.pyplot as plt
 import os
-from .Circuit import Q_Circuit
-from .utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
-from .utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
-from .utils import distanceVecFromSubspace, get_Hamiltonian
+from shot_noise.Circuit import Q_Circuit
+from shot_noise.utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
+from shot_noise.utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
+from shot_noise.utils import distanceVecFromSubspace, get_Hamiltonian
 
 HR_dist_hist = []
 
