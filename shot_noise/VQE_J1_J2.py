@@ -1,7 +1,7 @@
 import numpy as np
 import os
-from utils import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
-from utils import get_nearest_neighbors
+from utils_shot_noise import get_Hamiltonian, expectation_X, get_NN_coupling, get_nNN_coupling
+from utils_shot_noise import get_nearest_neighbors
 from qiskit import QuantumCircuit, Aer
 from qiskit.algorithms.optimizers import IMFIL
 from qiskit import transpile

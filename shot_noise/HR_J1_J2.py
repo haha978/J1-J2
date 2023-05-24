@@ -6,9 +6,9 @@ from azure.quantum.qiskit import AzureQuantumProvider
 from qiskit import transpile
 import numpy as np
 import argparse
-from utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
-from utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
-from utils import distanceVecFromSubspace, get_Hamiltonian
+from utils_shot_noise import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
+from utils_shot_noise import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
+from utils_shot_noise import distanceVecFromSubspace, get_Hamiltonian
 # from utils import distanceVecFromSubspace, get_exp_cross, get_exp_X, get_exp_ZZ
 import pickle
 import matplotlib.pyplot as plt

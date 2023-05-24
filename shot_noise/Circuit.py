@@ -1,6 +1,6 @@
 import qiskit
 from qiskit import QuantumCircuit, Aer
-from utils import get_nearest_neighbors, flatten_neighbor_l
+from utils_shot_noise import get_nearest_neighbors, flatten_neighbor_l
 import numpy as np
 
 def ALA(circ, N_qubits, var_params, h_l, n_layers):
