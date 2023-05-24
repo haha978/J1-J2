@@ -1,7 +1,5 @@
 import numpy as np
 import os
-from utils_noiseless import get_Hamiltonian, expected_op
-from utils_noiseless import get_nearest_neighbors, create_identity
 from qiskit import QuantumCircuit, Aer
 from qiskit.algorithms.optimizers import IMFIL
 from qiskit import transpile
@@ -10,7 +8,12 @@ import argparse
 from functools import partial
 import pickle
 import matplotlib.pyplot as plt
-from Circuit import Q_Circuit
+# Reference https://stackoverflow.com/questions/52988881/modulenotfounderror-on-a-submodule-that-imports-a-submodule
+# to understand why there is a dot before the package name
+from .Circuit import Q_Circuit
+from .utils import get_Hamiltonian, expected_op
+from .utils import get_nearest_neighbors, create_identity
+
 
 E_hist = []
 
