@@ -6,9 +6,9 @@ from azure.quantum.qiskit import AzureQuantumProvider
 from qiskit import transpile
 import numpy as np
 import argparse
-from utils import get_nearest_neighbors, get_next_nearest_neighbors
-from utils import get_Hx, create_partial_Hamiltonian, get_Hamiltonian
-from utils import distanceVecFromSubspace, expected_op1_op2, expected_op
+from utils_noiseless import get_nearest_neighbors, get_next_nearest_neighbors
+from utils_noiseless import get_Hx, create_partial_Hamiltonian, get_Hamiltonian
+from utils_noiseless import distanceVecFromSubspace, expected_op1_op2, expected_op
 import pickle
 import matplotlib.pyplot as plt
 import os

@@ -1,7 +1,7 @@
 import numpy as np
 import os
-from utils import get_Hamiltonian, expected_op
-from utils import get_nearest_neighbors, create_identity
+from utils_noiseless import get_Hamiltonian, expected_op
+from utils_noiseless import get_nearest_neighbors, create_identity
 from qiskit import QuantumCircuit, Aer
 from qiskit.algorithms.optimizers import IMFIL
 from qiskit import transpile
