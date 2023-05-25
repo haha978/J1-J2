@@ -112,7 +112,7 @@ def test1():
     3. Make sure that param_idx does not exceed the maximum index in params_dir_path
     4. Choose the number of shots used to test
     """
-    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/noiseless/ALA_3layers/params_dir")
+    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/tests/ALA_3layers_noiseless/params_dir")
     param_idx = 400
     shots = 10000
     hyperparam_dict = get_HR_hyperparam_dict(params_dir_path.parents[0], shots)
@@ -132,7 +132,7 @@ def test2():
     Compares (0, 1)th and (0, 2)th entry of covariance matrix from the noiseless simulation
     vs those from simulation with shot noise
     """
-    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/noiseless/ALA_3layers/params_dir")
+    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/tests/ALA_3layers_noiseless/params_dir")
     param_idx = 400
     shots = 10000
     hyperparam_dict = get_HR_hyperparam_dict(params_dir_path.parents[0], shots)
@@ -173,7 +173,7 @@ def test3():
     """
     Compares nearest neighbor coupling strength between noiseless simulation and simulation with shot noise.
     """
-    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/noiseless/ALA_3layers/params_dir")
+    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/tests/ALA_3layers_noiseless/params_dir")
     param_idx = 400
     shots = 10000
     hyperparam_dict = get_HR_hyperparam_dict(params_dir_path.parents[0], shots)
@@ -195,7 +195,7 @@ def test4():
     """
     Compares <X0Z1Z3> value between noiseless simulation and simulations with shot noise.
     """
-    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/noiseless/ALA_3layers/params_dir")
+    params_dir_path = pathlib.Path("/root/research/HR/PAPER_FIGURES/J1-J2/tests/ALA_3layers_noiseless/params_dir")
     param_idx = 400
     shots = 10000
     hyperparam_dict = get_HR_hyperparam_dict(params_dir_path.parents[0], shots)
