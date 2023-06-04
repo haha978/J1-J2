@@ -24,15 +24,19 @@ def get_args(parser):
     parser.add_argument('--input_dir', type = str, help = "directory where VQE_hyperparam_dict.npy exists and HR distances and plots will be stored")
     parser.add_argument('--shots', type=int, default=1000, help = "number of shots during HamiltonianReconstuction (default: 1000)")
     parser.add_argument('--backend', type = str, default = "aer_simulator", help = "backend for ionq runs (aer_simulator, ionq.simulator, ionq.qpu, ionq.qpu.aria-1, default = aer_simulator)")
+    parser.add_argument('--use_VQE_p1_p2', action = 'store_true', help = "Use VQE p1 and p2 values when simulating HR. Only compatible with aer_simulator backend")
     parser.add_argument('--param_idx_l', action = 'store_true', help = "if there is param_idx_l, then use param_idx_l.npy in input_dir \
                                 to load the parameter index list to measure corresponding HR distances")
+    parser.add_argument('--p1', type = float, default = 0.0, help = "one-qubit gate depolarization noise (default: 0.0)")
+    parser.add_argument('--p2', type = float, default = 0.0, help = "two-qubit gate depolarization noise (default: 0.0)")
     args = parser.parse_args()
     return args
 
 def get_measurement(n_qbts, var_params, backend, h_l, hyperparam_dict, param_idx):
     num_shots = hyperparam_dict["shots"]
     backendnm = hyperparam_dict["backend"]
-    measurement_path = os.path.join(args.input_dir, "measurement",f"{num_shots}_shots_{backendnm}", f"{param_idx}th_param_{''.join([str(e) for e in h_l])}qbt_h_gate.npy")
+    p1, p2 = hyperparam_dict["p1"], hyperparam_dict["p2"]
+    measurement_path = os.path.join(args.input_dir, "measurement",f"{num_shots}_shots_{backendnm}_p1_{p1}_p2_{p2}", f"{param_idx}th_param_{''.join([str(e) for e in h_l])}qbt_h_gate.npy")
     if os.path.exists(measurement_path):
         #no need to save as it is already saved
         measurement = np.load(measurement_path, allow_pickle = "True").item()
@@ -125,8 +129,6 @@ def get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend):
 def main(args):
     if not os.path.exists(os.path.join(args.input_dir,"VQE_hyperparam_dict.npy")):
         raise ValueError( "input directory must be a valid input path that contains VQE_hyperparam_dict.npy")
-    if not os.path.isdir(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}")):
-        os.makedirs(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}"))
     if not os.path.isdir(os.path.join(args.input_dir, "HR_dist_hist")):
         os.makedirs(os.path.join(args.input_dir, "HR_dist_hist"))
     if not os.path.isdir(os.path.join(args.input_dir, "HR_hyperparam_dict")):
@@ -135,33 +137,42 @@ def main(args):
     #LOAD All the hyperparamter data from VQE here
     VQE_hyperparam_dict = np.load(os.path.join(args.input_dir, "VQE_hyperparam_dict.npy"), allow_pickle = True).item()
     params_dir_path = os.path.join(args.input_dir,"params_dir")
-    #NEED TO FIX THIS TO SUPPORT GPU
+
+    #Initialize hyperparameter dictionary
+    hyperparam_dict = {}
+    hyperparam_dict["gst_E"] = VQE_hyperparam_dict["gst_E"]
+    hyperparam_dict["J1"], hyperparam_dict["J2"] = VQE_hyperparam_dict["J1"], VQE_hyperparam_dict["J2"]
+    hyperparam_dict["m"], hyperparam_dict["n"] = VQE_hyperparam_dict["m"], VQE_hyperparam_dict["n"]
+    hyperparam_dict["p1"], hyperparam_dict["p2"] = args.p1, args.p2
+    hyperparam_dict["n_layers"] = VQE_hyperparam_dict["n_layers"]
+    hyperparam_dict["ansatz_type"] = VQE_hyperparam_dict["ansatz_type"]
+    #Need a new number of shots for HR distance for cost purposes.
+    hyperparam_dict["shots"] = args.shots
+    hyperparam_dict["backend"] = args.backend
+
     if args.backend == "aer_simulator":
-        noise_model = NoiseModel()
-        p1_error = depolarizing_error(VQE_hyperparam_dict["p1"], 1)
-        p2_error = depolarizing_error(VQE_hyperparam_dict["p2"], 2)
-        noise_model.add_all_qubit_quantum_error(p1_error, ['h','ry'])
-        noise_model.add_all_qubit_quantum_error(p2_error, ['cx'])
-        backend = AerSimulator(noise_model = noise_model)
+        if args.use_VQE_p1_p2:
+            hyperparam_dict["p1"], hyperparam_dict["p2"] = VQE_hyperparam_dict["p1"], VQE_hyperparam_dict["p2"]
+        if hyperparam_dict["p1"] == 0 and hyperparam_dict["p2"] == 0:
+            backend = AerSimulator()
+        else:
+            noise_model = NoiseModel()
+            p1_error = depolarizing_error(hyperparam_dict["p1"], 1)
+            p2_error = depolarizing_error(hyperparam_dict["p2"], 2)
+            noise_model.add_all_qubit_quantum_error(p1_error, ['h','ry'])
+            noise_model.add_all_qubit_quantum_error(p2_error, ['cx'])
+            backend = AerSimulator(noise_model = noise_model)
     else:
         provider = AzureQuantumProvider(resource_id = "/subscriptions/58687a6b-a9bd-4f79-b7af-1f8f76760d4b/resourceGroups/AzureQuantum/providers/Microsoft.Quantum/Workspaces/HamiltonianReconstruction",\
                                         location = "West US")
         backend = provider.get_backend(args.backend)
 
-    hyperparam_dict = {}
-    hyperparam_dict["gst_E"] = VQE_hyperparam_dict["gst_E"]
-    hyperparam_dict["J1"], hyperparam_dict["J2"] = VQE_hyperparam_dict["J1"], VQE_hyperparam_dict["J2"]
-    hyperparam_dict["m"], hyperparam_dict["n"] = VQE_hyperparam_dict["m"], VQE_hyperparam_dict["n"]
-    hyperparam_dict["p1"], hyperparam_dict["p2"] = VQE_hyperparam_dict["p1"], VQE_hyperparam_dict["p2"]
-    hyperparam_dict["n_layers"] = VQE_hyperparam_dict["n_layers"]
-    hyperparam_dict["ansatz_type"] = VQE_hyperparam_dict["ansatz_type"]
-
-    #Need a new number of shots for HR distance for cost purposes.
-    hyperparam_dict["shots"] = args.shots
-    hyperparam_dict["backend"] = args.backend
-
     print("This is hyperparameter dictionary newly constructed: ", hyperparam_dict)
-    np.save(os.path.join(args.input_dir, "HR_hyperparam_dict", f"{args.shots}_shots_{args.backend}.npy"), hyperparam_dict)
+    p1, p2 = hyperparam_dict["p1"], hyperparam_dict["p2"]
+    if not os.path.isdir(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}_p1_{p1}_p2_{p2}")):
+        os.makedirs(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}_p1_{p1}_p2_{p2}"))
+
+    np.save(os.path.join(args.input_dir, "HR_hyperparam_dict", f"{args.shots}_shots_{args.backend}_p1_{p1}_p2_{p2}.npy"), hyperparam_dict)
 
     with open(os.path.join(args.input_dir, "E_hist.pkl"), "rb") as fp:
         E_hist = pickle.load(fp)
@@ -194,7 +205,7 @@ def main(args):
         HR_dist = get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend)
         print(f"This is HR distance: {HR_dist} for {param_idx}th param")
         HR_dist_hist.append(HR_dist)
-        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots_{args.backend}.pkl"), "wb") as fp:
+        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots_p1_{p1}_p2_{p2}.pkl"), "wb") as fp:
             pickle.dump(HR_dist_hist, fp)
 
     #backend for fidelity should be different
@@ -212,15 +223,17 @@ def main(args):
     ax.set_xlabel('VQE Iterations')
     ax.set_ylabel("Energy")
     ax.legend(bbox_to_anchor=(1.28, 1.30), fontsize = 10)
-    title = "VQE 2-D "+ f"J1-J2 {m} x {n} grid \n" + f"J1: {J1}, J2: {J2}, shots: {args.shots}" + '\n' + f"p1: {hyperparam_dict['p1']}, p2: {hyperparam_dict['p2']}" + \
+    title = "VQE 2-D "+ f"J1-J2 {m} x {n} grid \n" + f"J1: {J1}, J2: {J2}, shots: {args.shots}" + \
                     '\n' + 'True Ground energy: ' + str(round(gst_E, 3)) + '\n' + 'Estimated Ground Energy: '+ str(round(float(min(E_hist)), 3))
+    if not (hyperparam_dict['p1'] == 0 and hyperparam_dict['p2'] == 0):
+        title = title + '\n' + f"p1: {p1}, p2: {p2}"
     plt.title(title, fontdict = {'fontsize' : 15})
     ax2 = ax.twinx()
     ax2.scatter(param_idx_l, HR_dist_hist, c = 'r', alpha = 0.8, marker=".", label = "HR distance")
     ax2.scatter(VQE_steps, fid_hist, c = 'g', alpha = 0.8, marker=".", label = "Fidelity")
     ax2.set_ylabel("HR distance | Fidelity")
     ax2.legend(bbox_to_anchor=(1.28, 1.22), fontsize = 10)
-    plt.savefig(args.input_dir+'/'+  str(m*n)+"qubits_"+ str(n_layers)+f"layers_shots_{args.shots}_HR_dist.png", dpi = 300, bbox_inches='tight')
+    plt.savefig(args.input_dir+'/'+  str(m*n)+"qubits_"+ str(n_layers)+f"layers_shots_{args.shots}_p1_{p1}_p2_{p2}_HR_dist.png", dpi = 300, bbox_inches='tight')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "VQE for 2-D J1-J2 model")

@@ -29,8 +29,8 @@ def get_args(parser):
     parser.add_argument('--n_layers', type = int, default = 3, help = "number of ALA ansatz layers needed (default: 3)")
     parser.add_argument('--output_dir', type = str, default = ".", help = "output directory being used (default: .)")
     parser.add_argument('--init_param', type = str, default = "NONE", help = "parameters for initialization (default: NONE)")
-    parser.add_argument('--p1', type = float, help = "1 qubit gate depolarization noise")
-    parser.add_argument('--p2', type = float, help = "2 qubit gate depolarization noise")
+    parser.add_argument('--p1', type = float, default = 0.0, help = "1 qubit gate depolarization noise (default: 0.0)")
+    parser.add_argument('--p2', type = float, default = 0.0, help = "2 qubit gate depolarization noise (default: 0.0)")
     args = parser.parse_args()
     return args
 
@@ -112,12 +112,15 @@ def main(args):
     bounds = np.tile(np.array([-np.pi, np.pi]), (Nparams,1))
 
     #add noise
-    noise_model = NoiseModel()
-    p1_error = depolarizing_error(hyperparam_dict["p1"], 1)
-    p2_error = depolarizing_error(hyperparam_dict["p2"], 2)
-    noise_model.add_all_qubit_quantum_error(p1_error, ['h','ry'])
-    noise_model.add_all_qubit_quantum_error(p2_error, ['cx'])
-    backend_noise = AerSimulator(noise_model = noise_model)
+    if hyperparam_dict["p1"] == 0 and hyperparam_dict["p2"] == 0:
+        backend_noise = AerSimulator()
+    else:
+        noise_model = NoiseModel()
+        p1_error = depolarizing_error(hyperparam_dict["p1"], 1)
+        p2_error = depolarizing_error(hyperparam_dict["p2"], 2)
+        noise_model.add_all_qubit_quantum_error(p1_error, ['h','ry'])
+        noise_model.add_all_qubit_quantum_error(p2_error, ['cx'])
+        backend_noise = AerSimulator(noise_model = noise_model)
 
     imfil = IMFIL(maxiter = args.max_iter)
     get_E_func = partial(get_E, hyperparam_dict= hyperparam_dict, backend_noise = backend_noise)
@@ -128,11 +131,12 @@ def main(args):
     ax.set_xlabel('VQE Iterations')
     ax.set_ylabel("Energy")
     ax.legend(bbox_to_anchor=(1.28, 1.30), fontsize = 10)
-    title = "VQE 2-D "+ f"J1-J2 {args.m} x {args.n} grid \n" + f"J1: {args.J1}, J2: {args.J2}, shots: {args.shots}" + '\n' + f"p1: {args.p1}, p2: {args.p2}" + '\n' + \
+    title = "VQE 2-D "+ f"J1-J2 {args.m} x {args.n} grid \n" + f"J1: {args.J1}, J2: {args.J2}, shots: {args.shots}" + '\n' +\
     'True Ground energy: ' + str(round(gst_E, 3)) + '\n' + 'Estimated Ground Energy: '+ str(round(float(min(E_hist)), 3))
+    if not (args.p1 == 0 and args.p2 == 0):
+        title = title + '\n' + f"p1: {args.p1}, p2: {args.p2}"
     plt.title(title, fontdict = {'fontsize' : 15})
     plt.savefig(args.output_dir+'/'+  str(n_qbts)+"qubits_"+ str(args.n_layers)+f"layers_shots_{args.shots}.png", dpi = 300, bbox_inches='tight')
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "VQE for 1-D TFIM with non-periodic boundary condition")
