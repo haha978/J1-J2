@@ -13,15 +13,15 @@ import argparse
 import pickle
 import matplotlib.pyplot as plt
 import os
-from shot_noise.Circuit import Q_Circuit
-from shot_noise.utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
-from shot_noise.utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
-from shot_noise.utils import distanceVecFromSubspace, get_Hamiltonian
+from depolarization_shot_noise.Circuit import Q_Circuit
+from depolarization_shot_noise.utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
+from depolarization_shot_noise.utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
+from depolarization_shot_noise.utils import distanceVecFromSubspace, get_Hamiltonian, get_fidelity
 
 HR_dist_hist = []
 
 def get_args(parser):
-    parser.add_argument('--input_dir', type = str, help = "directory where VQE_hyperparam_dict.npy exists and HR distances and plots will be stored")
+    parser.add_argument('--input_dir', type = str, help = "directory where VQE_hyperparam_dict.npy exists. HR distances and plots will be stored in the input_dir")
     parser.add_argument('--shots', type=int, default=1000, help = "number of shots during HamiltonianReconstuction (default: 1000)")
     parser.add_argument('--backend', type = str, default = "aer_simulator", help = "backend for ionq runs (aer_simulator, ionq.simulator, ionq.qpu, ionq.qpu.aria-1, default = aer_simulator)")
     parser.add_argument('--use_VQE_p1_p2', action = 'store_true', help = "Use VQE p1 and p2 values when simulating HR. Only compatible with aer_simulator backend")
@@ -69,12 +69,18 @@ def get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, backend):
     var_params = get_params(params_dir_path, param_idx)
     m, n = hyperparam_dict["m"], hyperparam_dict["n"]
     circ = Q_Circuit(m, n, var_params, [], hyperparam_dict["n_layers"], hyperparam_dict["ansatz_type"])
-    circ.save_statevector()
-    result = backend.run(circ).result()
-    statevector = result.get_statevector(circ)
-    statevector = np.array(statevector)
-    fid_sqrt = np.vdot(statevector, ground_state)
-    fid = np.vdot(fid_sqrt,fid_sqrt)
+    if hyperparam_dict['p1'] == 0 and hyperparam_dict['p2'] == 0:
+        circ.save_statevector()
+        result = backend.run(circ).result()
+        statevector = result.get_statevector(circ)
+        statevector = np.array(statevector)
+        fid_sqrt = np.vdot(statevector, ground_state)
+        fid = np.vdot(fid_sqrt,fid_sqrt)
+    else:
+        circ.save_density_matrix()
+        result = backend.run(circ).result()
+        den_mat = result.data(0)['density_matrix']
+        fid = get_fidelity(ground_state, den_mat)
     return fid.real
 
 def get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend):
@@ -150,25 +156,30 @@ def main(args):
     hyperparam_dict["shots"] = args.shots
     hyperparam_dict["backend"] = args.backend
 
+    if args.use_VQE_p1_p2:
+        hyperparam_dict["p1"], hyperparam_dict["p2"] = VQE_hyperparam_dict["p1"], VQE_hyperparam_dict["p2"]
+
+
+    print("This is hyperparameter dictionary newly constructed: ", hyperparam_dict)
+    #set the most updated p1 and p2 for updated purposes
+    p1, p2 = hyperparam_dict["p1"], hyperparam_dict["p2"]
+    #create noise_model to use it when simulating fidelity
+    noise_model = NoiseModel()
+    p1_error = depolarizing_error(p1, 1)
+    p2_error = depolarizing_error(p2, 2)
+    noise_model.add_all_qubit_quantum_error(p1_error, ['h','ry'])
+    noise_model.add_all_qubit_quantum_error(p2_error, ['cx'])
+
     if args.backend == "aer_simulator":
-        if args.use_VQE_p1_p2:
-            hyperparam_dict["p1"], hyperparam_dict["p2"] = VQE_hyperparam_dict["p1"], VQE_hyperparam_dict["p2"]
         if hyperparam_dict["p1"] == 0 and hyperparam_dict["p2"] == 0:
             backend = AerSimulator()
         else:
-            noise_model = NoiseModel()
-            p1_error = depolarizing_error(hyperparam_dict["p1"], 1)
-            p2_error = depolarizing_error(hyperparam_dict["p2"], 2)
-            noise_model.add_all_qubit_quantum_error(p1_error, ['h','ry'])
-            noise_model.add_all_qubit_quantum_error(p2_error, ['cx'])
             backend = AerSimulator(noise_model = noise_model)
     else:
         provider = AzureQuantumProvider(resource_id = "/subscriptions/58687a6b-a9bd-4f79-b7af-1f8f76760d4b/resourceGroups/AzureQuantum/providers/Microsoft.Quantum/Workspaces/HamiltonianReconstruction",\
                                         location = "West US")
         backend = provider.get_backend(args.backend)
 
-    print("This is hyperparameter dictionary newly constructed: ", hyperparam_dict)
-    p1, p2 = hyperparam_dict["p1"], hyperparam_dict["p2"]
     if not os.path.isdir(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}_p1_{p1}_p2_{p2}")):
         os.makedirs(os.path.join(args.input_dir, "measurement", f"{args.shots}_shots_{args.backend}_p1_{p1}_p2_{p2}"))
 
@@ -176,6 +187,15 @@ def main(args):
 
     with open(os.path.join(args.input_dir, "E_hist.pkl"), "rb") as fp:
         E_hist = pickle.load(fp)
+
+    if args.param_idx_l:
+        fid_hist_filename = f"fid_param_idx_l_p1_{p1}_p2_{p2}.pkl"
+        HR_dist_hist_filename =  f"HR_param_idx_l_{args.shots}shots_{args.backend}_p1_{p1}_p2_{p2}.pkl"
+        img_name = f"layers_shots_param_idx_l_{args.shots}_p1_{p1}_p2_{p2}_HR_dist.png"
+    else:
+        fid_hist_filename = f"fid_p1_{p1}_p2_{p2}.pkl"
+        HR_dist_hist_filename =  f"HR_{args.shots}shots_{args.backend}_p1_{p1}_p2_{p2}.pkl"
+        img_name = f"layers_shots_{args.shots}_p1_{p1}_p2_{p2}_HR_dist.png"
 
     gst_E = hyperparam_dict["gst_E"]
     m, n = hyperparam_dict["m"], hyperparam_dict["n"]
@@ -205,16 +225,24 @@ def main(args):
         HR_dist = get_HR_distance(hyperparam_dict, param_idx, params_dir_path, backend)
         print(f"This is HR distance: {HR_dist} for {param_idx}th param")
         HR_dist_hist.append(HR_dist)
-        with open(os.path.join(args.input_dir, f"HR_dist_hist", f"{args.shots}shots_p1_{p1}_p2_{p2}.pkl"), "wb") as fp:
+        with open(os.path.join(args.input_dir, f"HR_dist_hist", HR_dist_hist_filename), "wb") as fp:
             pickle.dump(HR_dist_hist, fp)
 
-    #backend for fidelity should be different
-    fid_backend = Aer.get_backend("aer_simulator")
-    for param_idx in range(len(E_hist)):
+    #fid_hist
+    if not os.path.isdir(os.path.join(args.input_dir, "fid_hist")):
+        os.makedirs(os.path.join(args.input_dir, "fid_hist"))
+
+    #backend initialization for fidelity
+    if p1 == 0 and p2 == 0:
+        fid_backend = AerSimulator()
+    else:
+        fid_backend = AerSimulator(method = 'density_matrix', noise_model = noise_model)
+
+    for param_idx in param_idx_l:
         fid  = get_fid(hyperparam_dict, param_idx, params_dir_path, ground_state, fid_backend)
         print(f"This is fidelity: {fid} for {param_idx}th param")
         fid_hist.append(fid)
-        with open(os.path.join(args.input_dir, "fid_hist.pkl"), "wb") as fp:
+        with open(os.path.join(args.input_dir, "fid_hist", fid_hist_filename), "wb") as fp:
             pickle.dump(fid_hist, fp)
 
     fig, ax = plt.subplots()
@@ -230,10 +258,10 @@ def main(args):
     plt.title(title, fontdict = {'fontsize' : 15})
     ax2 = ax.twinx()
     ax2.scatter(param_idx_l, HR_dist_hist, c = 'r', alpha = 0.8, marker=".", label = "HR distance")
-    ax2.scatter(VQE_steps, fid_hist, c = 'g', alpha = 0.8, marker=".", label = "Fidelity")
+    ax2.scatter(param_idx_l, fid_hist, c = 'g', alpha = 0.8, marker=".", label = "Fidelity")
     ax2.set_ylabel("HR distance | Fidelity")
     ax2.legend(bbox_to_anchor=(1.28, 1.22), fontsize = 10)
-    plt.savefig(args.input_dir+'/'+  str(m*n)+"qubits_"+ str(n_layers)+f"layers_shots_{args.shots}_p1_{p1}_p2_{p2}_HR_dist.png", dpi = 300, bbox_inches='tight')
+    plt.savefig(args.input_dir+'/'+  str(m*n)+"qubits_"+ str(n_layers)+img_name, dpi = 300, bbox_inches='tight')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "VQE for 2-D J1-J2 model")

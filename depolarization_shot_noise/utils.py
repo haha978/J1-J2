@@ -129,6 +129,10 @@ def get_NN_coupling(z_m, m, n, expo):
     exp_val = tot_val / tot_count
     return exp_val
 
+def get_fidelity(wf, mat):
+    fid = np.sqrt(np.matmul(np.conj(wf),np.matmul(mat, wf)))
+    return fid.real
+
 def get_nNN_coupling(z_m, m, n, expo):
     tot_val, tot_count = 0, 0
     nNN_l = flatten_neighbor_l(get_next_nearest_neighbors(m, n), m , n)
