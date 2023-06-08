@@ -13,10 +13,10 @@ import argparse
 import pickle
 import matplotlib.pyplot as plt
 import os
-from shot_noise.Circuit import Q_Circuit
-from shot_noise.utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
-from shot_noise.utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
-from shot_noise.utils import distanceVecFromSubspace, get_Hamiltonian
+from depolarization_shot_noise.Circuit import Q_Circuit
+from depolarization_shot_noise.utils import expectation_X, get_NN_coupling, get_nNN_coupling, get_exp_cross
+from depolarization_shot_noise.utils import flatten_neighbor_l, get_nearest_neighbors, get_next_nearest_neighbors
+from depolarization_shot_noise.utils import distanceVecFromSubspace, get_Hamiltonian
 
 HR_dist_hist = []
 
@@ -71,7 +71,6 @@ def main(args):
     shots, backend, p1, p2 = hyperparam_dict["shots"], hyperparam_dict["backend"], hyperparam_dict["p1"], hyperparam_dict["p2"]
 
     print("This is hyperparameter dictionary newly constructed: ", hyperparam_dict)
-    p1, p2 = hyperparam_dict["p1"], hyperparam_dict["p2"]
     if not os.path.isdir(os.path.join(args.input_dir, "measurement", f"{shots}_shots_{backend}_p1_{p1}_p2_{p2}")):
         raise ValueError("measurement directory does not exist in args.input_dir")
 
